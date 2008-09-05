@@ -9,18 +9,23 @@ static const gchar* pill_taken_msg = "PILL TAKEN";
 static const gchar* pill_not_taken_msg = "PILL NOT TAKEN";
 // 60 seconds/minute * 60 minutes/hour * 22 hours
 static const guint interval = 60 * 60 * 22;
+static gboolean g_event_fired = FALSE;
 
 
 static gboolean reset_indicator(gpointer data) {
   GtkWidget *label = GTK_WIDGET(data);
+  g_event_fired = FALSE;
   gtk_label_set_text(GTK_LABEL(label), pill_not_taken_msg);
   return FALSE;
 }
 
 static gboolean pill_taken(GtkWidget* event_box, GdkEventButton* event, gpointer data) {
   GtkWidget *label = GTK_WIDGET(data);
-  gtk_label_set_text(GTK_LABEL(label), pill_taken_msg);
-  g_timeout_add_seconds(interval, reset_indicator, label);
+  if(!g_event_fired && (event->button == 1)) {
+    g_event_fired = TRUE;
+    gtk_label_set_text(GTK_LABEL(label), pill_taken_msg);
+    g_timeout_add_seconds(interval, reset_indicator, label);
+  }
   return FALSE;
 }
 
