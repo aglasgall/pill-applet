@@ -4,27 +4,45 @@
 #include <gtk/gtk.h>
 #include <gtk/gtklabel.h>
 #include <stdlib.h>
+#include <sys/time.h>
+#include <time.h>
 
-static const gchar* pill_taken_msg = "PILL TAKEN";
-static const gchar* pill_not_taken_msg = "PILL NOT TAKEN";
-// 60 seconds/minute * 60 minutes/hour * 22 hours
-static const guint interval = 60 * 60 * 22;
+static const gchar* PILL_TAKEN_MSG = "PILL TAKEN";
+static const gchar* PILL_NOT_TAKEN_MSG = "PILL NOT TAKEN";
+// (60 seconds/minute, 30 minutes) - poll wallclock every half an hour :(
+static const guint INTERVAL = 60 * 30;
+// reset after 22 hours (60 seconds/minute * 60 minutes/hour * 22 hours)
+static const struct timeval RESET_INTERVAL = { 60 * 60 * 22, 0 };
+
 static gboolean g_event_fired = FALSE;
-
+static struct timeval g_pill_taken_time = {};
 
 static gboolean reset_indicator(gpointer data) {
-  GtkWidget *label = GTK_WIDGET(data);
-  g_event_fired = FALSE;
-  gtk_label_set_text(GTK_LABEL(label), pill_not_taken_msg);
-  return FALSE;
+  struct timeval now = {};
+  struct timeval elapsed_time = {};
+  GtkWidget *label = NULL;
+  
+  label = GTK_WIDGET(data);
+  gettimeofday(&now,NULL);
+  timeradd(&g_pill_taken_time, &RESET_INTERVAL, &elapsed_time);
+  
+  if(timercmp(&elapsed_time, &now, >)) {
+    timerclear(&g_pill_taken_time);
+    g_event_fired = FALSE;
+    gtk_label_set_text(GTK_LABEL(label), PILL_NOT_TAKEN_MSG);
+    return FALSE;
+  } else {
+    return TRUE;
+  }
 }
 
 static gboolean pill_taken(GtkWidget* event_box, GdkEventButton* event, gpointer data) {
   GtkWidget *label = GTK_WIDGET(data);
   if(!g_event_fired && (event->button == 1)) {
     g_event_fired = TRUE;
-    gtk_label_set_text(GTK_LABEL(label), pill_taken_msg);
-    g_timeout_add_seconds(interval, reset_indicator, label);
+    gettimeofday(&g_pill_taken_time,NULL);
+    gtk_label_set_text(GTK_LABEL(label), PILL_TAKEN_MSG);
+    g_timeout_add_seconds(INTERVAL, reset_indicator, label);
   }
   return FALSE;
 }
@@ -37,7 +55,7 @@ gboolean pill_applet_fill(PanelApplet* applet, const gchar* iid, gpointer data) 
     return FALSE;
   }
 
-  label = gtk_label_new(pill_not_taken_msg);
+  label = gtk_label_new(PILL_NOT_TAKEN_MSG);
   event_box = gtk_event_box_new();
   gtk_container_add(GTK_CONTAINER(event_box), label);
   g_signal_connect(GTK_OBJECT(event_box), "button-press-event", G_CALLBACK(pill_taken),label);
