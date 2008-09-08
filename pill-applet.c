@@ -26,7 +26,7 @@ static gboolean reset_indicator(gpointer data) {
   gettimeofday(&now,NULL);
   timeradd(&g_pill_taken_time, &RESET_INTERVAL, &elapsed_time);
   
-  if(timercmp(&elapsed_time, &now, >)) {
+  if(timercmp(&now, &elapsed_time, >)) {
     timerclear(&g_pill_taken_time);
     g_event_fired = FALSE;
     gtk_label_set_text(GTK_LABEL(label), PILL_NOT_TAKEN_MSG);
