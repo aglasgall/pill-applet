@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <string.h>
 #include <glib.h>
 #include <panel-applet.h>
@@ -17,10 +19,10 @@ static const gchar* INTERVAL_KEY = "/apps/pill-applet/reset_interval";
 static const guint INTERVAL = 60 * 30;
 
 // reset after 22 hours (60 seconds/minute * 60 minutes/hour * 22 hours)
-static struct timeval g_reset_interval = { };
+static struct timeval g_reset_interval = { 0,0 };
 static gboolean g_event_fired = FALSE;
-static struct timeval g_pill_taken_time = {};
-static guint g_notification_id = NULL;
+static struct timeval g_pill_taken_time = { 0,0 };
+static guint g_notification_id = 0;
 
 
 static void cleanup(GtkWidget* applet, gpointer data) {
@@ -31,8 +33,8 @@ static void cleanup(GtkWidget* applet, gpointer data) {
 
 
 static gboolean try_reset_indicator(gpointer data) {
-  struct timeval now = {};
-  struct timeval elapsed_time = {};
+  struct timeval now = { 0,0 };
+  struct timeval elapsed_time = { 0,0 };
   GtkWidget *label = NULL;
   gboolean rv = FALSE;
   
@@ -132,7 +134,7 @@ PANEL_APPLET_BONOBO_FACTORY ("OAFIID:GNOME_PillApplet_Factory",
                              "Pill Applet",
                              "0",
                              pill_applet_fill,
-                             NULL);
+                             NULL)
 
 
     

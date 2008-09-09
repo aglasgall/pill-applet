@@ -1,4 +1,4 @@
-CFLAGS=`pkg-config --cflags libpanelapplet-2.0 gconf-2.0` -g
+CFLAGS=`pkg-config --cflags libpanelapplet-2.0 gconf-2.0` -g -Wall -Werror -pedantic -std=c99
 LDFLAGS=`pkg-config --libs libpanelapplet-2.0 gconf-2.0`
 GCONF_CONFIG_SOURCE=$(shell /usr/bin/gconftool-2 --get-default-source)
 export GCONF_CONFIG_SOURCE
