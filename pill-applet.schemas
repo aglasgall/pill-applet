@@ -1,0 +1,15 @@
+<gconfschemafile>
+  <schemalist>
+    <schema>
+      <key>/schemas/apps/pill-applet/reset_interval</key>
+      <applyto>/apps/pill-applet/reset_interval</applyto>
+      <owner>pill-applet</owner>
+      <type>int</type>
+      <default>79200</default>
+      <locale name="C">
+	<short>Reset interval in seconds</short>
+	<long>Time in seconds before pill indicator will be reset</long>
+      </locale>
+    </schema>
+  </schemalist>
+</gconfschemafile>
