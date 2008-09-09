@@ -14,7 +14,7 @@
 static const gchar* PILL_TAKEN_MSG = "PILL TAKEN";
 static const gchar* PILL_NOT_TAKEN_MSG = "PILL NOT TAKEN";
 static const gchar* INTERVAL_KEY = "/apps/pill-applet/reset_interval";
-
+static const gchar* APP_CONFIG = "/apps/pill-applet";
 // (60 seconds/minute, 30 minutes) - poll wallclock every half an hour :(
 static const guint INTERVAL = 60 * 30;
 
@@ -28,6 +28,7 @@ static guint g_notification_id = 0;
 static void cleanup(GtkWidget* applet, gpointer data) {
   GConfClient* client = GCONF_CLIENT(data);
   gconf_client_notify_remove(client, g_notification_id);
+  gconf_client_remove_dir(client, APP_CONFIG, NULL);
   g_object_unref(GTK_OBJECT(client));
 }
 
@@ -121,9 +122,12 @@ gboolean pill_applet_fill(PanelApplet* applet, const gchar* iid, gpointer data) 
   gtk_container_add(GTK_CONTAINER(applet),event_box);
   gtk_widget_show_all(GTK_WIDGET(applet));
 
-  gconf_client_notify_add(client, "/apps/pill-applet",
-			  interval_changed, label,
-			  NULL, NULL);
+  gconf_client_add_dir(client, APP_CONFIG,
+		       GCONF_CLIENT_PRELOAD_NONE, NULL);
+  g_notification_id = gconf_client_notify_add(client, 
+					      "/apps/pill-applet/reset_interval",
+					      interval_changed, label,
+					      NULL, NULL);
   g_signal_connect(GTK_OBJECT(applet), "destroy", G_CALLBACK(cleanup), client);
   return TRUE;
 }
