@@ -23,7 +23,7 @@ static struct timeval g_reset_interval = { 0,0 };
 static gboolean g_event_fired = FALSE;
 static struct timeval g_pill_taken_time = { 0,0 };
 static guint g_notification_id = 0;
-
+static guint g_timeout_event_id = 0;
 
 static void cleanup(GtkWidget* applet, gpointer data) {
   GConfClient* client = GCONF_CLIENT(data);
@@ -32,6 +32,12 @@ static void cleanup(GtkWidget* applet, gpointer data) {
   g_object_unref(GTK_OBJECT(client));
 }
 
+static void reset_app_state(GtkWidget* label) {
+  timerclear(&g_pill_taken_time);
+  g_event_fired = FALSE;
+  gtk_label_set_text(GTK_LABEL(label), PILL_NOT_TAKEN_MSG);
+
+}
 
 static gboolean try_reset_indicator(gpointer data) {
   struct timeval now = { 0,0 };
@@ -44,14 +50,13 @@ static gboolean try_reset_indicator(gpointer data) {
   timeradd(&g_pill_taken_time, &g_reset_interval, &elapsed_time);
   
   if(timercmp(&now, &elapsed_time, >)) {
-    timerclear(&g_pill_taken_time);
-    g_event_fired = FALSE;
-    gtk_label_set_text(GTK_LABEL(label), PILL_NOT_TAKEN_MSG);
+    reset_app_state(label);
   } else {
     rv = TRUE;
   }
   return rv;
 }
+
 
 static void interval_changed(GConfClient *client,
 			     guint cnxn_id,
@@ -60,14 +65,21 @@ static void interval_changed(GConfClient *client,
   GConfValue* value = NULL;
   int new_interval = 0;
   GtkWidget* label = NULL;
+  GSource* old_timer = NULL;
 
   label = GTK_WIDGET(user_data);
   value = gconf_entry_get_value(entry);
   new_interval = gconf_value_get_int(value);
   
-  timerclear(&g_pill_taken_time);
-  g_event_fired = FALSE;
-  gtk_label_set_text(GTK_LABEL(label), PILL_NOT_TAKEN_MSG);
+  // disable timeout event
+  if (g_timeout_event_id) {
+    old_timer = g_main_context_find_source_by_id(NULL,g_timeout_event_id);
+    if(old_timer) {
+      g_source_destroy(old_timer);
+      g_timeout_event_id = 0;
+    }
+  }
+  reset_app_state(label);
   g_reset_interval.tv_sec = new_interval;
 
 }
@@ -78,7 +90,7 @@ static gboolean pill_taken(GtkWidget* event_box, GdkEventButton* event, gpointer
     g_event_fired = TRUE;
     gettimeofday(&g_pill_taken_time,NULL);
     gtk_label_set_text(GTK_LABEL(label), PILL_TAKEN_MSG);
-    g_timeout_add_seconds(INTERVAL, try_reset_indicator, label);
+    g_timeout_event_id = g_timeout_add_seconds(INTERVAL, try_reset_indicator, label);
   }
   return FALSE;
 }
