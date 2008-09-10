@@ -1,15 +1,5 @@
-#define _GNU_SOURCE
+#include "pill-applet.h"
 
-#include <string.h>
-#include <glib.h>
-#include <panel-applet.h>
-#include <gtk/gtk.h>
-#include <gtk/gtklabel.h>
-#include <stdlib.h>
-#include <sys/time.h>
-#include <time.h>
-#include <gconf/gconf.h>
-#include <gconf/gconf-client.h>
 
 static const gchar* PILL_TAKEN_MSG = "PILL TAKEN";
 static const gchar* PILL_NOT_TAKEN_MSG = "PILL NOT TAKEN";
@@ -19,38 +9,40 @@ static const gchar* APP_CONFIG = "/apps/pill-applet";
 static const guint INTERVAL = 60 * 30;
 
 // reset after 22 hours (60 seconds/minute * 60 minutes/hour * 22 hours)
-static struct timeval g_reset_interval = { 0,0 };
-static gboolean g_event_fired = FALSE;
-static struct timeval g_pill_taken_time = { 0,0 };
-static guint g_notification_id = 0;
-static guint g_timeout_event_id = 0;
 
 static void cleanup(GtkWidget* applet, gpointer data) {
-  GConfClient* client = GCONF_CLIENT(data);
-  gconf_client_notify_remove(client, g_notification_id);
+  ApplicationState* app = NULL;
+  GConfClient* client = NULL;
+
+  app = (ApplicationState*)app;
+  client = GCONF_CLIENT(app->client);
+  gconf_client_notify_remove(client, app->notification_id);
   gconf_client_remove_dir(client, APP_CONFIG, NULL);
   g_object_unref(GTK_OBJECT(client));
+  g_free(app);
 }
 
-static void reset_app_state(GtkWidget* label) {
-  timerclear(&g_pill_taken_time);
-  g_event_fired = FALSE;
-  gtk_label_set_text(GTK_LABEL(label), PILL_NOT_TAKEN_MSG);
+static void reset_app_state(ApplicationState* app) {
+  timerclear(&(app->pill_taken_time));
+  app->event_fired = FALSE;
+  gtk_label_set_text(GTK_LABEL(LABEL_FROM_APPLET(app->applet)), PILL_NOT_TAKEN_MSG);
 
 }
 
 static gboolean try_reset_indicator(gpointer data) {
   struct timeval now = { 0,0 };
   struct timeval elapsed_time = { 0,0 };
+  ApplicationState* app;
   GtkWidget *label = NULL;
   gboolean rv = FALSE;
-  
-  label = GTK_WIDGET(data);
+
+  app = (ApplicationState*)data;
+  label = GTK_WIDGET(LABEL_FROM_APPLET(app->applet));
   gettimeofday(&now,NULL);
-  timeradd(&g_pill_taken_time, &g_reset_interval, &elapsed_time);
+  timeradd(&(app->pill_taken_time), &(app->reset_interval), &elapsed_time);
   
   if(timercmp(&now, &elapsed_time, >)) {
-    reset_app_state(label);
+    reset_app_state(app);
   } else {
     rv = TRUE;
   }
@@ -66,31 +58,37 @@ static void interval_changed(GConfClient *client,
   int new_interval = 0;
   GtkWidget* label = NULL;
   GSource* old_timer = NULL;
+  ApplicationState* app = NULL;
 
-  label = GTK_WIDGET(user_data);
+  app = (ApplicationState*)user_data;
+  label = GTK_WIDGET(LABEL_FROM_APPLET(app->applet));
   value = gconf_entry_get_value(entry);
   new_interval = gconf_value_get_int(value);
   
   // disable timeout event
-  if (g_timeout_event_id) {
-    old_timer = g_main_context_find_source_by_id(NULL,g_timeout_event_id);
+  if (app->timeout_event_id) {
+    old_timer = g_main_context_find_source_by_id(NULL,app->timeout_event_id);
     if(old_timer) {
       g_source_destroy(old_timer);
-      g_timeout_event_id = 0;
+      app->timeout_event_id = 0;
     }
   }
-  reset_app_state(label);
-  g_reset_interval.tv_sec = new_interval;
+  reset_app_state(app);
+  app->reset_interval.tv_sec = new_interval;
 
 }
 
 static gboolean pill_taken(GtkWidget* event_box, GdkEventButton* event, gpointer data) {
-  GtkWidget *label = GTK_WIDGET(data);
-  if(!g_event_fired && (event->button == 1)) {
-    g_event_fired = TRUE;
-    gettimeofday(&g_pill_taken_time,NULL);
+  GtkWidget *label = NULL;
+  ApplicationState* app = NULL;
+
+  app = (ApplicationState*)data;
+  label = LABEL_FROM_APPLET(app->applet);
+  if(!(app->event_fired) && (event->button == 1)) {
+    app->event_fired = TRUE;
+    gettimeofday(&(app->pill_taken_time),NULL);
     gtk_label_set_text(GTK_LABEL(label), PILL_TAKEN_MSG);
-    g_timeout_event_id = g_timeout_add_seconds(INTERVAL, try_reset_indicator, label);
+    app->timeout_event_id = g_timeout_add_seconds(INTERVAL, try_reset_indicator, label);
   }
   return FALSE;
 }
@@ -99,7 +97,7 @@ static gboolean pill_taken(GtkWidget* event_box, GdkEventButton* event, gpointer
 gboolean pill_applet_fill(PanelApplet* applet, const gchar* iid, gpointer data) {
   GtkWidget *label = NULL;
   GtkWidget *event_box = NULL;
-  GConfClient* client;
+  ApplicationState* app;
   GConfValue* initial_interval = NULL;
   int interval = 0;
 
@@ -107,40 +105,42 @@ gboolean pill_applet_fill(PanelApplet* applet, const gchar* iid, gpointer data) 
     return FALSE;
   }
 
-  if(!(client = gconf_client_get_default())) {
+  app = g_new0(ApplicationState, 1);
+  app->applet = applet;
+  if(!(app->client = gconf_client_get_default())) {
     return FALSE;
   }
-  gconf_client_set_error_handling(client,GCONF_CLIENT_HANDLE_ALL);
+  gconf_client_set_error_handling(app->client,GCONF_CLIENT_HANDLE_ALL);
 
 
-  if(!(initial_interval = gconf_client_get(client,INTERVAL_KEY,NULL))) {
-    g_object_unref(client);
+  if(!(initial_interval = gconf_client_get(app->client,INTERVAL_KEY,NULL))) {
+    g_object_unref(app->client);
     return FALSE;
   }
 
   if(!(interval = gconf_value_get_int(initial_interval))) {
     gconf_value_free(initial_interval);
-    g_object_unref(client);
+    g_object_unref(app->client);
     return FALSE;
   }
-  g_reset_interval.tv_sec = interval;
-  g_reset_interval.tv_usec = 0;
+  app->reset_interval.tv_sec = interval;
+  app->reset_interval.tv_usec = 0;
   gconf_value_free(initial_interval);
 
   label = gtk_label_new(PILL_NOT_TAKEN_MSG);
   event_box = gtk_event_box_new();
   gtk_container_add(GTK_CONTAINER(event_box), label);
-  g_signal_connect(GTK_OBJECT(event_box), "button-press-event", G_CALLBACK(pill_taken),label);
+  g_signal_connect(GTK_OBJECT(event_box), "button-press-event", G_CALLBACK(pill_taken),app);
   gtk_container_add(GTK_CONTAINER(applet),event_box);
   gtk_widget_show_all(GTK_WIDGET(applet));
 
-  gconf_client_add_dir(client, APP_CONFIG,
+  gconf_client_add_dir(app->client, APP_CONFIG,
 		       GCONF_CLIENT_PRELOAD_NONE, NULL);
-  g_notification_id = gconf_client_notify_add(client, 
+  app->notification_id = gconf_client_notify_add(app->client, 
 					      "/apps/pill-applet/reset_interval",
-					      interval_changed, label,
+					      interval_changed, app,
 					      NULL, NULL);
-  g_signal_connect(GTK_OBJECT(applet), "destroy", G_CALLBACK(cleanup), client);
+  g_signal_connect(GTK_OBJECT(applet), "destroy", G_CALLBACK(cleanup), app);
   return TRUE;
 }
 
