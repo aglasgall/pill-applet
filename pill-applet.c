@@ -1,10 +1,10 @@
 #include "pill-applet.h"
 
 
-static const gchar* PILL_TAKEN_MSG = "PILL TAKEN";
-static const gchar* PILL_NOT_TAKEN_MSG = "PILL NOT TAKEN";
-static const gchar* INTERVAL_KEY = "/apps/pill-applet/reset_interval";
-static const gchar* APP_CONFIG = "/apps/pill-applet";
+static const gchar *PILL_TAKEN_MSG = "PILL TAKEN";
+static const gchar *PILL_NOT_TAKEN_MSG = "PILL NOT TAKEN";
+static const gchar *INTERVAL_KEY = "/apps/pill-applet/reset_interval";
+static const gchar *APP_CONFIG = "/apps/pill-applet";
 // (60 seconds/minute, 30 minutes) - poll wallclock every half an hour :(
 static const guint INTERVAL = 60 * 30;
 
@@ -54,12 +54,10 @@ static void interval_changed(GConfClient *client,
 			     gpointer user_data) {
   GConfValue* value = NULL;
   int new_interval = 0;
-  GtkWidget* label = NULL;
   GSource* old_timer = NULL;
   ApplicationState* app = NULL;
 
   app = (ApplicationState*)user_data;
-  label = GTK_WIDGET(LABEL_FROM_APPLET(app->applet));
   value = gconf_entry_get_value(entry);
   new_interval = gconf_value_get_int(value);
   
