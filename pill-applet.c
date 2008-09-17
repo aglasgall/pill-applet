@@ -18,7 +18,7 @@ static void cleanup(GtkWidget* applet, gpointer data) {
   client = GCONF_CLIENT(app->client);
   gconf_client_notify_remove(client, app->notification_id);
   gconf_client_remove_dir(client, APP_CONFIG, NULL);
-  g_object_unref(GTK_OBJECT(client));
+  g_object_unref(client);
   g_free(app);
 }
 
