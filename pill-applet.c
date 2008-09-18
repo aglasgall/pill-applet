@@ -5,14 +5,17 @@ static const gchar *PILL_TAKEN_MSG = "PILL TAKEN";
 static const gchar *PILL_NOT_TAKEN_MSG = "PILL NOT TAKEN";
 static const gchar *INTERVAL_KEY = "/apps/pill-applet/reset_interval";
 static const gchar *APP_CONFIG = "/apps/pill-applet";
+static const gchar *APP_IID = "OAFIID:GNOME_PillApplet";
+static const gchar *APP_FACTORY_IID = "OAFIID:GNOME_PillApplet_Factory";
+static const gchar *APP_NAME = "Pill Applet";
 // (60 seconds/minute, 30 minutes) - poll wallclock every half an hour :(
 static const guint INTERVAL = 60 * 30;
 
 // reset after 22 hours (60 seconds/minute * 60 minutes/hour * 22 hours)
 
-static void cleanup(GtkWidget* applet, gpointer data) {
-  ApplicationState* app = NULL;
-  GConfClient* client = NULL;
+static void cleanup(GtkWidget *applet, gpointer data) {
+  ApplicationState *app = NULL;
+  GConfClient *client = NULL;
 
   app = (ApplicationState*)data;
   client = GCONF_CLIENT(app->client);
@@ -22,7 +25,7 @@ static void cleanup(GtkWidget* applet, gpointer data) {
   g_free(app);
 }
 
-static void reset_app_state(ApplicationState* app) {
+static void reset_app_state(ApplicationState *app) {
   timerclear(&(app->pill_taken_time));
   app->event_fired = FALSE;
   gtk_label_set_text(GTK_LABEL(LABEL_FROM_APPLET(app->applet)), PILL_NOT_TAKEN_MSG);
@@ -52,10 +55,10 @@ static void interval_changed(GConfClient *client,
 			     guint cnxn_id,
 			     GConfEntry *entry,
 			     gpointer user_data) {
-  GConfValue* value = NULL;
+  GConfValue *value = NULL;
   int new_interval = 0;
-  GSource* old_timer = NULL;
-  ApplicationState* app = NULL;
+  GSource *old_timer = NULL;
+  ApplicationState *app = NULL;
 
   app = (ApplicationState*)user_data;
   value = gconf_entry_get_value(entry);
@@ -74,9 +77,9 @@ static void interval_changed(GConfClient *client,
 
 }
 
-static gboolean pill_taken(GtkWidget* event_box, GdkEventButton* event, gpointer data) {
+static gboolean pill_taken(GtkWidget *event_box, GdkEventButton *event, gpointer data) {
   GtkWidget *label = NULL;
-  ApplicationState* app = NULL;
+  ApplicationState *app = NULL;
 
   app = (ApplicationState*)data;
   label = LABEL_FROM_APPLET(app->applet);
@@ -90,14 +93,14 @@ static gboolean pill_taken(GtkWidget* event_box, GdkEventButton* event, gpointer
 }
 
 
-gboolean pill_applet_fill(PanelApplet* applet, const gchar* iid, gpointer data) {
+gboolean pill_applet_fill(PanelApplet *applet, const gchar *iid, gpointer data) {
   GtkWidget *label = NULL;
   GtkWidget *event_box = NULL;
-  ApplicationState* app;
+  ApplicationState *app;
   GConfValue* initial_interval = NULL;
   int interval = 0;
 
-  if (strcmp(iid,"OAFIID:GNOME_PillApplet") != 0) {
+  if (strcmp(iid,APP_IID) != 0) {
     return FALSE;
   }
 
@@ -144,9 +147,9 @@ gboolean pill_applet_fill(PanelApplet* applet, const gchar* iid, gpointer data) 
 }
 
 
-PANEL_APPLET_BONOBO_FACTORY ("OAFIID:GNOME_PillApplet_Factory",
+PANEL_APPLET_BONOBO_FACTORY (APP_FACTORY_IID,
                              PANEL_TYPE_APPLET,
-                             "Pill Applet",
+                             APP_NAME,
                              "0",
                              pill_applet_fill,
                              NULL)
