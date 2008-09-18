@@ -139,7 +139,7 @@ gboolean pill_applet_fill(PanelApplet *applet, const gchar *iid, gpointer data) 
   gconf_client_add_dir(app->client, APP_CONFIG,
 		       GCONF_CLIENT_PRELOAD_NONE, NULL);
   app->notification_id = gconf_client_notify_add(app->client, 
-					      "/apps/pill-applet/reset_interval",
+					      INTERVAL_KEY,
 					      interval_changed, app,
 					      NULL, NULL);
   g_signal_connect(GTK_OBJECT(applet), "destroy", G_CALLBACK(cleanup), app);
