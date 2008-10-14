@@ -1,5 +1,19 @@
 #include "pill-applet.h"
 
+static void do_reset_from_menu(BonoboUIComponent* uic, gpointer data, const char* cname);
+
+static const char context_menu_xml[] = 
+"<popup name=\"button3\">\n"
+"  <menuitem name=\"Reset Item\" "
+"            verb=\"ResetStatus\" "
+"            _label=\"Reset Pill Status\" />\n"
+"</popup>\n";
+
+static const BonoboUIVerb pill_menu_verbs[] = {
+  BONOBO_UI_VERB("ResetStatus",do_reset_from_menu),
+  BONOBO_UI_VERB_END
+};
+
 
 static const gchar *PILL_TAKEN_MSG = "PILL TAKEN";
 static const gchar *PILL_NOT_TAKEN_MSG = "PILL NOT TAKEN";
@@ -8,8 +22,10 @@ static const gchar *APP_CONFIG = "/apps/pill-applet";
 static const gchar *APP_IID = "OAFIID:GNOME_PillApplet";
 static const gchar *APP_FACTORY_IID = "OAFIID:GNOME_PillApplet_Factory";
 static const gchar *APP_NAME = "Pill Applet";
+static const gchar *APP_VERSION = "0.6";
 // (60 seconds/minute, 30 minutes) - poll wallclock every half an hour :(
 static const guint INTERVAL = 60 * 30;
+
 
 // reset after 22 hours (60 seconds/minute * 60 minutes/hour * 22 hours)
 
@@ -32,11 +48,16 @@ static void reset_app_state(ApplicationState *app) {
 
 }
 
+static void do_reset_from_menu(BonoboUIComponent* uic, gpointer data, const char* cname) {
+  reset_app_state(data);
+}
+
+
 static gboolean try_reset_indicator(gpointer data) {
   struct timeval now = { 0,0 };
   struct timeval elapsed_time = { 0,0 };
   ApplicationState *app = NULL;
-  gboolean rv = FALSE;
+  gboolean rv = TRUE;
 
   app = (ApplicationState*)data;
   gettimeofday(&now,NULL);
@@ -44,8 +65,7 @@ static gboolean try_reset_indicator(gpointer data) {
   
   if(timercmp(&now, &elapsed_time, >)) {
     reset_app_state(app);
-  } else {
-    rv = TRUE;
+    rv = FALSE;
   }
   return rv;
 }
@@ -96,7 +116,7 @@ static gboolean pill_taken(GtkWidget *event_box, GdkEventButton *event, gpointer
 gboolean pill_applet_fill(PanelApplet *applet, const gchar *iid, gpointer data) {
   GtkWidget *label = NULL;
   GtkWidget *event_box = NULL;
-  ApplicationState *app;
+  ApplicationState *app = NULL;
   GConfValue* initial_interval = NULL;
   int interval = 0;
 
@@ -143,6 +163,7 @@ gboolean pill_applet_fill(PanelApplet *applet, const gchar *iid, gpointer data) 
 					      interval_changed, app,
 					      NULL, NULL);
   g_signal_connect(GTK_OBJECT(applet), "destroy", G_CALLBACK(cleanup), app);
+  panel_applet_setup_menu(PANEL_APPLET(applet),context_menu_xml,pill_menu_verbs,app);
   return TRUE;
 }
 
@@ -150,7 +171,7 @@ gboolean pill_applet_fill(PanelApplet *applet, const gchar *iid, gpointer data) 
 PANEL_APPLET_BONOBO_FACTORY (APP_FACTORY_IID,
                              PANEL_TYPE_APPLET,
                              APP_NAME,
-                             "0",
+                             APP_VERSION,
                              pill_applet_fill,
                              NULL)
 
